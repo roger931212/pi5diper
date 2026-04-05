@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>尿布疹邊緣運算系統</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .dashboard-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 50px;
+            max-width: 700px;
+            width: 100%;
+        }
+
+        .system-title {
+            text-align: center;
+            margin-bottom: 40px;
+            color: #1e3c72;
+        }
+
+        .action-btn {
+            padding: 30px;
+            font-size: 20px;
+            font-weight: 600;
+            border-radius: 15px;
+            transition: all 0.3s;
+            border: none;
+            margin-bottom: 20px;
+        }
+
+        .btn-primary-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary-custom:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success-custom {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-success-custom:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(17, 153, 142, 0.4);
+        }
+
+        .btn-sync {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 15px;
+            font-size: 16px;
+        }
+
+        .btn-sync:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(245, 87, 108, 0.4);
+        }
+
+        .status-badge {
+            font-size: 14px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: #e3f2fd;
+            color: #1976d2;
+            display: inline-block;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-card">
+        <div class="system-title">
+            <h1>尿布疹邊緣運算系統</h1>
+            <p class="text-muted">醫療專業人員介面</p>
+            <span class="status-badge">系統已上線</span>
+        </div>
+
+        <div class="d-grid gap-3">
+            <a href="/review" class="btn action-btn btn-primary-custom">
+                審閱待處理案例
+            </a>
+
+            <a href="/reviewed" class="btn action-btn btn-success-custom">
+                檢視歷史紀錄
+            </a>
+
+            <button class="btn action-btn btn-sync" onclick="triggerSync()">
+                手動強制同步
+            </button>
+        </div>
+
+        <div class="text-center mt-4">
+            <small class="text-muted">邊緣處理系統 v1.0 | Raspberry Pi</small>
+        </div>
+    </div>
+
+    <!-- Toast for sync status -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="syncToast" class="toast" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto">同步狀態</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastMessage">
+                同步已成功觸發!
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        async function triggerSync() {
+            try {
+                const response = await fetch('/api/sync/trigger', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                const toastEl = document.getElementById('syncToast');
+                const toastBody = document.getElementById('toastMessage');
+
+                if (response.ok) {
+                    toastBody.textContent = (data.message || '同步已成功觸發!');
+                    toastBody.className = 'toast-body bg-success text-white';
+                } else {
+                    toastBody.textContent = (data.detail || '同步失敗');
+                    toastBody.className = 'toast-body bg-danger text-white';
+                }
+
+                const toast = new bootstrap.Toast(toastEl);
+                toast.show();
+            } catch (error) {
+                const toastEl = document.getElementById('syncToast');
+                const toastBody = document.getElementById('toastMessage');
+                toastBody.textContent = '錯誤: ' + error.message;
+                toastBody.className = 'toast-body bg-danger text-white';
+                const toast = new bootstrap.Toast(toastEl);
+                toast.show();
+            }
+        }
+    </script>
+</body>
+
+</html>

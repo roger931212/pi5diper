@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>案例審閱詳情</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #f0f2f5;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .content-card {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+
+        .image-container {
+            text-align: center;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .image-container img {
+            max-width: 100%;
+            max-height: 500px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .ai-prediction {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .ai-level {
+            font-size: 48px;
+            font-weight: bold;
+        }
+
+        .form-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            border: none;
+            color: white;
+            padding: 12px 40px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .btn-submit:hover {
+            opacity: 0.9;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>案例審閱詳情</h2>
+                    <p class="text-muted mb-0" id="caseId">載入中...</p>
+                </div>
+                <a href="/review" class="btn btn-outline-secondary">← 返回列表</a>
+            </div>
+        </div>
+
+        <div id="loading" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">載入中...</span>
+            </div>
+        </div>
+
+        <div id="caseContent" style="display: none;">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="content-card">
+                        <h4>影像</h4>
+                        <div class="image-container">
+                            <img id="caseImage" src="" alt="案例影像">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="content-card">
+                        <h4>案例資訊</h4>
+                        <table class="table">
+                            <tr>
+                                <th>案例編號:</th>
+                                <td id="detailCaseId"></td>
+                            </tr>
+                            <tr>
+                                <th>建立時間:</th>
+                                <td id="detailCreated"></td>
+                            </tr>
+                            <tr>
+                                <th>狀態:</th>
+                                <td id="detailStatus"></td>
+                            </tr>
+                        </table>
+
+                        <div class="ai-prediction">
+                            <h5>AI 預測</h5>
+                            <div class="ai-level" id="aiLevel">-</div>
+                            <p class="mb-1" id="aiConfidence"></p>
+                            <hr style="border-color: rgba(255,255,255,0.3);">
+                            <p class="mb-0" id="aiSuggestion"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-card">
+                <h4>醫療審閱</h4>
+                <form id="reviewForm" class="form-section">
+                    <input type="hidden" id="formCaseId" name="case_id">
+
+                    <div class="mb-4">
+                        <label class="form-label"><strong>專業評估等級:</strong></label>
+                        <div class="btn-group d-flex" role="group">
+                            <input type="radio" class="btn-check" name="level" id="level0" value="0">
+                            <label class="btn btn-outline-primary" for="level0">Level 0</label>
+
+                            <input type="radio" class="btn-check" name="level" id="level1" value="1">
+                            <label class="btn btn-outline-primary" for="level1">Level 1</label>
+
+                            <input type="radio" class="btn-check" name="level" id="level2" value="2" checked>
+                            <label class="btn btn-outline-primary" for="level2">Level 2</label>
+                        </div>
+                        <small class="text-muted d-block mt-2">0 = no_rash, 1 = mild, 2 = moderate_or_severe</small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="note" class="form-label"><strong>醫療紀錄 / 建議:</strong></label>
+                        <textarea class="form-control" id="note" name="note" rows="5"
+                            placeholder="請輸入您的專業評估及對家長的建議..."></textarea>
+                        <small class="text-muted">這些紀錄將透過 LINE 傳送給家長。</small>
+                    </div>
+
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-submit btn-lg">
+                            提交審閱並通知家長
+                        </button>
+                    </div>
+                </form>
+
+                <hr class="mt-4">
+                <div class="text-center">
+                    <button type="button" class="btn btn-outline-danger" onclick="deleteCase()">
+                        刪除紀錄與影像
+                    </button>
+                    <p class="text-muted mt-2"><small>此操作將永久刪除案件資料與影像檔案，無法復原。</small></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="errorMsg" style="display: none;" class="alert alert-danger"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const caseId = urlParams.get('id');
+
+        async function loadCaseDetail() {
+            if (!caseId) {
+                document.getElementById('errorMsg').textContent = '未提供案例編號';
+                document.getElementById('errorMsg').style.display = 'block';
+                document.getElementById('loading').style.display = 'none';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/case/${caseId}`);
+                if (!response.ok) {
+                    throw new Error('找不到案例');
+                }
+
+                const caseData = await response.json();
+
+                // Update UI
+                document.getElementById('caseId').textContent = `案例編號: ${caseData.id}`;
+                document.getElementById('detailCaseId').textContent = caseData.id;
+                document.getElementById('detailCreated').textContent = new Date(caseData.created_at).toLocaleString('zh-TW');
+                document.getElementById('detailStatus').textContent = caseData.status || 'pending';
+
+                // AI Prediction
+                document.getElementById('aiLevel').textContent = `等級 ${caseData.ai_level !== null ? caseData.ai_level : '?'}`;
+                document.getElementById('aiConfidence').textContent = caseData.ai_prob ? `信心度: ${(caseData.ai_prob * 100).toFixed(1)}%` : '';
+                document.getElementById('aiSuggestion').textContent = caseData.ai_suggestion || '無 AI 建議';
+
+                // Set image
+                document.getElementById('caseImage').src = `/api/image/${caseData.id}`;
+
+                // Set form case ID
+                document.getElementById('formCaseId').value = caseData.id;
+
+                // Pre-select AI level if available
+                if (caseData.ai_level !== null) {
+                    const radio = document.getElementById(`level${caseData.ai_level}`);
+                    if (radio) {
+                        radio.checked = true;
+                    }
+                }
+
+                // Show content
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('caseContent').style.display = 'block';
+
+            } catch (error) {
+                document.getElementById('errorMsg').textContent = '錯誤: ' + error.message;
+                document.getElementById('errorMsg').style.display = 'block';
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('reviewForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!confirm('確定要提交此審閱嗎？家長將會透過 LINE 收到通知。')) {
+                return;
+            }
+
+            const formData = new FormData(e.target);
+
+            try {
+                const response = await fetch('/api/review/submit', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert('審閱已成功提交！' + (result.line_sent ? ' LINE 通知已傳送。' : ' LINE 通知傳送失敗。'));
+                    window.location.href = '/review';
+                } else {
+                    alert('錯誤: ' + (result.detail || result.error || '未知錯誤'));
+                }
+            } catch (error) {
+                alert('提交審閱時發生錯誤: ' + error.message);
+            }
+        });
+
+        // 手動刪除案件與影像
+        async function deleteCase() {
+            if (!caseId) return;
+            if (!confirm('確定要永久刪除此案件的所有紀錄和影像嗎？此操作無法復原。')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/case/delete/${caseId}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert('案件已成功刪除。' + (result.image_deleted ? ' 影像已移除。' : ' 影像移除失敗或不存在。'));
+                    window.location.href = '/review';
+                } else {
+                    alert('刪除失敗: ' + (result.error || '未知錯誤'));
+                }
+            } catch (error) {
+                alert('刪除時發生錯誤: ' + error.message);
+            }
+        }
+
+        // Load case on page load
+        loadCaseDetail();
+    </script>
+</body>
+
+</html>

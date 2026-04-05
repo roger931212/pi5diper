@@ -1,0 +1,17 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Runtime/generated
+uploads/
+internal.db
+internal.db-shm
+internal.db-wal
+.edge_workers.lock
+
+# Secrets
+edge_private.env
+
+# Local envs
+.venv/
+venv/
