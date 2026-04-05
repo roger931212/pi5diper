@@ -145,15 +145,15 @@
                         <label class="form-label"><strong>專業評估等級:</strong></label>
                         <div class="btn-group d-flex" role="group">
                             <input type="radio" class="btn-check" name="level" id="level0" value="0">
-                            <label class="btn btn-outline-primary" for="level0">Level 0</label>
+                            <label class="btn btn-outline-primary" for="level0">等級 0</label>
 
                             <input type="radio" class="btn-check" name="level" id="level1" value="1">
-                            <label class="btn btn-outline-primary" for="level1">Level 1</label>
+                            <label class="btn btn-outline-primary" for="level1">等級 1</label>
 
                             <input type="radio" class="btn-check" name="level" id="level2" value="2" checked>
-                            <label class="btn btn-outline-primary" for="level2">Level 2</label>
+                            <label class="btn btn-outline-primary" for="level2">等級 2</label>
                         </div>
-                        <small class="text-muted d-block mt-2">0 = no_rash, 1 = mild, 2 = moderate_or_severe</small>
+                        <small class="text-muted d-block mt-2">0 = 無紅疹，1 = 輕度，2 = 中度或重度</small>
                     </div>
 
                     <div class="mb-4">
@@ -208,7 +208,7 @@
                 document.getElementById('caseId').textContent = `案例編號: ${caseData.id}`;
                 document.getElementById('detailCaseId').textContent = caseData.id;
                 document.getElementById('detailCreated').textContent = new Date(caseData.created_at).toLocaleString('zh-TW');
-                document.getElementById('detailStatus').textContent = caseData.status || 'pending';
+                document.getElementById('detailStatus').textContent = caseData.status || '待處理';
 
                 // AI Prediction
                 document.getElementById('aiLevel').textContent = `等級 ${caseData.ai_level !== null ? caseData.ai_level : '?'}`;
