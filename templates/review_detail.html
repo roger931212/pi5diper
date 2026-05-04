@@ -188,6 +188,39 @@
         const urlParams = new URLSearchParams(window.location.search);
         const caseId = urlParams.get('id');
 
+        function parseBackendDate(value, { assumeUtcWhenNoZone = false } = {}) {
+            const raw = String(value ?? "").trim();
+            if (!raw) {
+                return null;
+            }
+
+            let normalized = raw.replace(" ", "T");
+            if (/([+-]\d{2})(\d{2})$/.test(normalized)) {
+                normalized = normalized.replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
+            }
+            const hasExplicitZone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(normalized);
+            if (!hasExplicitZone && assumeUtcWhenNoZone) {
+                normalized = `${normalized}Z`;
+            }
+
+            const parsed = new Date(normalized);
+            if (Number.isNaN(parsed.getTime())) {
+                return null;
+            }
+            return parsed;
+        }
+
+        function formatBackendDate(value, { assumeUtcWhenNoZone = false } = {}) {
+            const parsed = parseBackendDate(value, { assumeUtcWhenNoZone });
+            if (!parsed) {
+                return '未知';
+            }
+            return parsed.toLocaleString('zh-TW', {
+                hour12: false,
+                timeZone: 'Asia/Taipei',
+            });
+        }
+
         async function loadCaseDetail() {
             if (!caseId) {
                 document.getElementById('errorMsg').textContent = '未提供案例編號';
@@ -207,7 +240,7 @@
                 // Update UI
                 document.getElementById('caseId').textContent = `案例編號: ${caseData.id}`;
                 document.getElementById('detailCaseId').textContent = caseData.id;
-                document.getElementById('detailCreated').textContent = new Date(caseData.created_at).toLocaleString('zh-TW');
+                document.getElementById('detailCreated').textContent = formatBackendDate(caseData.created_at, { assumeUtcWhenNoZone: true });
                 document.getElementById('detailStatus').textContent = caseData.status || '待處理';
 
                 // AI Prediction
@@ -296,6 +329,7 @@
         // Load case on page load
         loadCaseDetail();
     </script>
+    {% include "_new_case_notifier.html" %}
 </body>
 
 </html>

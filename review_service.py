@@ -1,10 +1,10 @@
-from datetime import datetime
 import logging
 import os
 
 from fastapi import HTTPException
 
 from database import db_lock, get_conn
+from edge_time_utils import now_iso_taipei
 from line_client import send_line_push_with_retry_result
 from review_message import build_review_line_message
 
@@ -14,7 +14,7 @@ MAX_NOTE_CHARS = int(os.getenv("MAX_NOTE_CHARS", "800"))
 
 
 def _now_iso() -> str:
-    return datetime.now().isoformat(timespec="seconds")
+    return now_iso_taipei()
 
 
 def submit_review_workflow(case_id: str, level: int, note: str) -> dict:

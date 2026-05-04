@@ -1,11 +1,11 @@
 import logging
 import threading
 import time
-from datetime import datetime
 
 import requests
 
 from config import LINE_API_TIMEOUT_SEC, LINE_CHANNEL_ACCESS_TOKEN, LINE_PUSH_API
+from edge_time_utils import now_iso_taipei
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ def _mask_id(user_id: str) -> str:
 
 
 def _now_iso() -> str:
-    return datetime.now().isoformat(timespec="seconds")
+    return now_iso_taipei()
 
 
 def send_line_push_with_retry_result(to_user_id: str, text: str, max_retries: int = 3) -> dict:

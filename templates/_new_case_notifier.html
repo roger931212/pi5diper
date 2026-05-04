@@ -1,0 +1,292 @@
+<script>
+(() => {
+    if (window.__edgeNewCaseNotifierInitialized) {
+        return;
+    }
+    window.__edgeNewCaseNotifierInitialized = true;
+
+    const POLL_INTERVAL_MS = 5000;
+    const PENDING_API_URL = '/api/list_pending';
+    const SOUND_API_URL = '/api/notification/sound';
+    const MESSAGE_TEXT = '收到新案件了';
+
+    let baselineInitialized = false;
+    let previousPendingIds = new Set();
+    let pollInFlight = false;
+    let pollTimer = null;
+    let audioElement = null;
+    let toastHideTimer = null;
+    let firstInteractionHandled = false;
+    let loggedCaseIdFallback = false;
+
+    function getCaseIdentifier(item) {
+        if (!item || typeof item !== 'object') {
+            return '';
+        }
+
+        if (item.id !== undefined && item.id !== null && String(item.id).trim() !== '') {
+            return String(item.id);
+        }
+
+        if (item.case_id !== undefined && item.case_id !== null && String(item.case_id).trim() !== '') {
+            if (!loggedCaseIdFallback) {
+                console.warn('[edge notifier] /api/list_pending missing "id"; fallback to "case_id".');
+                loggedCaseIdFallback = true;
+            }
+            return String(item.case_id);
+        }
+
+        return '';
+    }
+
+    function ensureToastElement() {
+        let container = document.getElementById('edgeNewCaseToastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'edgeNewCaseToastContainer';
+            container.className = 'position-fixed top-0 end-0 p-3';
+            container.style.zIndex = '1080';
+            document.body.appendChild(container);
+        }
+
+        let toastEl = document.getElementById('edgeNewCaseToast');
+        if (!toastEl) {
+            toastEl = document.createElement('div');
+            toastEl.id = 'edgeNewCaseToast';
+            toastEl.className = 'toast text-bg-primary border-0';
+            toastEl.setAttribute('role', 'alert');
+            toastEl.setAttribute('aria-live', 'assertive');
+            toastEl.setAttribute('aria-atomic', 'true');
+            toastEl.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body edge-new-case-toast-message"></div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+            container.appendChild(toastEl);
+        }
+
+        const messageNode = toastEl.querySelector('.edge-new-case-toast-message');
+        if (messageNode) {
+            messageNode.textContent = MESSAGE_TEXT;
+        }
+
+        return toastEl;
+    }
+
+    function showToastMessage() {
+        const toastEl = ensureToastElement();
+
+        if (window.bootstrap && window.bootstrap.Toast) {
+            const toast = window.bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3000 });
+            toast.show();
+            return;
+        }
+
+        toastEl.style.display = 'block';
+        toastEl.style.opacity = '1';
+        if (toastHideTimer) {
+            clearTimeout(toastHideTimer);
+        }
+        toastHideTimer = window.setTimeout(() => {
+            toastEl.style.opacity = '0';
+            toastEl.style.display = 'none';
+        }, 3000);
+    }
+
+    function showSystemNotification() {
+        if (typeof window.Notification === 'undefined') {
+            return;
+        }
+        if (window.Notification.permission !== 'granted') {
+            return;
+        }
+
+        try {
+            const notification = new Notification(MESSAGE_TEXT, {
+                body: MESSAGE_TEXT,
+                tag: 'edge-new-case-notification',
+            });
+            window.setTimeout(() => notification.close(), 5000);
+        } catch (error) {
+            console.warn('[edge notifier] system notification failed:', error);
+        }
+    }
+
+    function ensureAudioElement() {
+        if (audioElement) {
+            return audioElement;
+        }
+
+        try {
+            const audio = new Audio(SOUND_API_URL);
+            audio.preload = 'auto';
+            audioElement = audio;
+        } catch (error) {
+            console.warn('[edge notifier] audio initialization failed:', error);
+            audioElement = null;
+        }
+
+        return audioElement;
+    }
+
+    async function unlockAudioIfPossible() {
+        const audio = ensureAudioElement();
+        if (!audio) {
+            return;
+        }
+
+        try {
+            const playResult = audio.play();
+            if (playResult && typeof playResult.then === 'function') {
+                await playResult;
+            }
+            audio.pause();
+            audio.currentTime = 0;
+        } catch (error) {
+            // Browser may block autoplay before user interaction.
+            console.warn('[edge notifier] audio unlock skipped:', error);
+        }
+    }
+
+    async function playSoundIfPossible() {
+        const audio = ensureAudioElement();
+        if (!audio) {
+            return;
+        }
+
+        try {
+            audio.currentTime = 0;
+        } catch (_error) {
+            // Ignore seek errors on partially loaded media.
+        }
+
+        try {
+            const playResult = audio.play();
+            if (playResult && typeof playResult.then === 'function') {
+                await playResult;
+            }
+        } catch (error) {
+            console.warn('[edge notifier] sound playback failed:', error);
+        }
+    }
+
+    async function requestNotificationPermissionIfNeeded() {
+        if (typeof window.Notification === 'undefined') {
+            return;
+        }
+        if (window.Notification.permission !== 'default') {
+            return;
+        }
+
+        try {
+            await window.Notification.requestPermission();
+        } catch (error) {
+            console.warn('[edge notifier] notification permission request failed:', error);
+        }
+    }
+
+    async function handleFirstInteraction() {
+        if (firstInteractionHandled) {
+            return;
+        }
+        firstInteractionHandled = true;
+
+        window.removeEventListener('click', handleFirstInteraction);
+        window.removeEventListener('keydown', handleFirstInteraction);
+
+        await requestNotificationPermissionIfNeeded();
+        await unlockAudioIfPossible();
+    }
+
+    function bindFirstInteractionHooks() {
+        window.addEventListener('click', handleFirstInteraction);
+        window.addEventListener('keydown', handleFirstInteraction);
+    }
+
+    function dispatchPendingCasesUpdated(cases) {
+        window.dispatchEvent(
+            new CustomEvent('edge:pending-cases-updated', {
+                detail: { cases: cases },
+            })
+        );
+    }
+
+    function dispatchPendingCasesError(error) {
+        window.dispatchEvent(
+            new CustomEvent('edge:pending-cases-error', {
+                detail: {
+                    message: error instanceof Error ? error.message : String(error),
+                },
+            })
+        );
+    }
+
+    function detectNewCase(currentIds) {
+        for (const caseId of currentIds) {
+            if (!previousPendingIds.has(caseId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    async function pollOnce() {
+        if (pollInFlight) {
+            return;
+        }
+
+        pollInFlight = true;
+        try {
+            const response = await fetch(PENDING_API_URL, {
+                cache: 'no-store',
+                credentials: 'same-origin',
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to load pending cases (HTTP ${response.status})`);
+            }
+
+            const payload = await response.json();
+            const cases = Array.isArray(payload) ? payload : [];
+            dispatchPendingCasesUpdated(cases);
+
+            const currentPendingIds = new Set();
+            for (const item of cases) {
+                const caseId = getCaseIdentifier(item);
+                if (caseId) {
+                    currentPendingIds.add(caseId);
+                }
+            }
+
+            if (!baselineInitialized) {
+                baselineInitialized = true;
+                previousPendingIds = currentPendingIds;
+                return;
+            }
+
+            const hasNewCase = detectNewCase(currentPendingIds);
+            previousPendingIds = currentPendingIds;
+
+            if (!hasNewCase) {
+                return;
+            }
+
+            showToastMessage();
+            showSystemNotification();
+            void playSoundIfPossible();
+        } catch (error) {
+            console.warn('[edge notifier] pending poll failed:', error);
+            dispatchPendingCasesError(error);
+        } finally {
+            pollInFlight = false;
+            if (pollTimer) {
+                clearTimeout(pollTimer);
+            }
+            pollTimer = window.setTimeout(pollOnce, POLL_INTERVAL_MS);
+        }
+    }
+
+    bindFirstInteractionHooks();
+    void pollOnce();
+})();
+</script>

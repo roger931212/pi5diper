@@ -115,97 +115,134 @@
                 .replace(/'/g, "&#39;");
         }
 
-        async function loadPendingCases() {
-            try {
-                const response = await fetch('/api/list_pending');
-                const cases = await response.json();
-
-                const loading = document.getElementById('loading');
-                const casesList = document.getElementById('casesList');
-
-                loading.style.display = 'none';
-
-                if (cases.length === 0) {
-                    casesList.innerHTML = `
-                        <div class="empty-state">
-                            <div style="font-size: 64px; margin-bottom: 20px;">✅</div>
-                            <h3>無待處理案例</h3>
-                            <p class="text-muted">所有案例已審閱完畢。</p>
-                            <a href="/" class="btn btn-primary mt-3">返回主控台</a>
-                        </div>
-                    `;
-                    return;
-                }
-
-                let html = '';
-                cases.forEach(c => {
-                    const caseId = String(c.id ?? "");
-                    const caseIdShort = escapeHtml(caseId.substring(0, 8));
-                    const normalizedLevel = Math.max(0, Math.min(2, Number(c.ai_level ?? 0)));
-                    const levelClass = `level-${normalizedLevel}`;
-                    const createdDate = c.created_at ? new Date(c.created_at).toLocaleString('zh-TW') : '未知';
-                    const createdDateEsc = escapeHtml(createdDate);
-                    const aiLevelDisplay = c.ai_level !== null && c.ai_level !== undefined
-                        ? escapeHtml(c.ai_level)
-                        : '處理中';
-                    const aiProb = Number(c.ai_prob);
-                    const aiProbHtml = Number.isFinite(aiProb)
-                        ? `<span class="ms-2 text-muted"><small>信心度: ${(aiProb * 100).toFixed(1)}%</small></span>`
-                        : '';
-                    const suggestionRaw = String(c.ai_suggestion ?? "");
-                    const suggestionPreview = suggestionRaw.length > 100
-                        ? `${suggestionRaw.substring(0, 100)}...`
-                        : suggestionRaw;
-                    const suggestionHtml = suggestionRaw
-                        ? `<p class="mt-2 mb-0"><small><strong>AI:</strong> ${escapeHtml(suggestionPreview)}</small></p>`
-                        : '';
-                    const detailHref = `/review/detail?id=${encodeURIComponent(caseId)}`;
-
-                    html += `
-                        <div class="case-card">
-                            <div class="row align-items-center">
-                                <div class="col-md-8">
-                                    <h5>案例 ${caseIdShort}...</h5>
-                                    <p class="text-muted mb-2">
-                                        <small>${createdDateEsc}</small>
-                                    </p>
-                                    <div>
-                                        <span class="ai-badge ${levelClass}">
-                                            AI 等級: ${aiLevelDisplay}
-                                        </span>
-                                        ${aiProbHtml}
-                                    </div>
-                                    ${suggestionHtml}
-                                </div>
-                                <div class="col-md-4 text-end">
-                                    <a href="${detailHref}" class="btn btn-review btn-lg">
-                                        審閱案例 →
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-
-                casesList.innerHTML = html;
-            } catch (error) {
-                const loading = document.getElementById('loading');
-                loading.innerHTML = `
-                    <div class="alert alert-danger">
-                        <strong>錯誤:</strong> <span id="pendingLoadErr"></span>
-                    </div>
-                `;
-                const errText = error instanceof Error ? error.message : String(error);
-                document.getElementById('pendingLoadErr').textContent = errText;
+        function parseBackendDate(value, { assumeUtcWhenNoZone = false } = {}) {
+            const raw = String(value ?? "").trim();
+            if (!raw) {
+                return null;
             }
+
+            let normalized = raw.replace(" ", "T");
+            if (/([+-]\d{2})(\d{2})$/.test(normalized)) {
+                normalized = normalized.replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
+            }
+            const hasExplicitZone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(normalized);
+            if (!hasExplicitZone && assumeUtcWhenNoZone) {
+                normalized = `${normalized}Z`;
+            }
+
+            const parsed = new Date(normalized);
+            if (Number.isNaN(parsed.getTime())) {
+                return null;
+            }
+            return parsed;
         }
 
-        // Load cases on page load
-        loadPendingCases();
+        function formatBackendDate(value, { assumeUtcWhenNoZone = false } = {}) {
+            const parsed = parseBackendDate(value, { assumeUtcWhenNoZone });
+            if (!parsed) {
+                return '未知';
+            }
+            return parsed.toLocaleString('zh-TW', {
+                hour12: false,
+                timeZone: 'Asia/Taipei',
+            });
+        }
 
-        // Auto-refresh every 30 seconds
-        setInterval(loadPendingCases, 30000);
+        function renderPendingCases(cases) {
+            const loading = document.getElementById('loading');
+            const casesList = document.getElementById('casesList');
+
+            loading.style.display = 'none';
+            const rows = Array.isArray(cases) ? cases : [];
+
+            if (rows.length === 0) {
+                casesList.innerHTML = `
+                    <div class="empty-state">
+                        <div style="font-size: 64px; margin-bottom: 20px;">✅</div>
+                        <h3>無待處理案例</h3>
+                        <p class="text-muted">所有案例已審閱完畢。</p>
+                        <a href="/" class="btn btn-primary mt-3">返回主控台</a>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            rows.forEach(c => {
+                const caseId = String(c.id ?? c.case_id ?? "");
+                const caseIdShort = escapeHtml(caseId.substring(0, 8));
+                const normalizedLevel = Math.max(0, Math.min(2, Number(c.ai_level ?? 0)));
+                const levelClass = `level-${normalizedLevel}`;
+                const createdDate = formatBackendDate(c.created_at, { assumeUtcWhenNoZone: true });
+                const createdDateEsc = escapeHtml(createdDate);
+                const aiLevelDisplay = c.ai_level !== null && c.ai_level !== undefined
+                    ? escapeHtml(c.ai_level)
+                    : '處理中';
+                const aiProb = Number(c.ai_prob);
+                const aiProbHtml = Number.isFinite(aiProb)
+                    ? `<span class="ms-2 text-muted"><small>信心度: ${(aiProb * 100).toFixed(1)}%</small></span>`
+                    : '';
+                const suggestionRaw = String(c.ai_suggestion ?? "");
+                const suggestionPreview = suggestionRaw.length > 100
+                    ? `${suggestionRaw.substring(0, 100)}...`
+                    : suggestionRaw;
+                const suggestionHtml = suggestionRaw
+                    ? `<p class="mt-2 mb-0"><small><strong>AI:</strong> ${escapeHtml(suggestionPreview)}</small></p>`
+                    : '';
+                const detailHref = `/review/detail?id=${encodeURIComponent(caseId)}`;
+
+                html += `
+                    <div class="case-card">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5>案例 ${caseIdShort}...</h5>
+                                <p class="text-muted mb-2">
+                                    <small>${createdDateEsc}</small>
+                                </p>
+                                <div>
+                                    <span class="ai-badge ${levelClass}">
+                                        AI 等級: ${aiLevelDisplay}
+                                    </span>
+                                    ${aiProbHtml}
+                                </div>
+                                ${suggestionHtml}
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <a href="${detailHref}" class="btn btn-review btn-lg">
+                                    審閱案例 →
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            casesList.innerHTML = html;
+        }
+
+        function showPendingLoadError(message) {
+            const loading = document.getElementById('loading');
+            const errText = message instanceof Error ? message.message : String(message ?? '未知錯誤');
+            loading.style.display = 'block';
+            loading.innerHTML = `
+                <div class="alert alert-danger">
+                    <strong>錯誤:</strong> <span id="pendingLoadErr"></span>
+                </div>
+            `;
+            document.getElementById('pendingLoadErr').textContent = errText;
+        }
+
+        window.addEventListener('edge:pending-cases-updated', (event) => {
+            const cases = event && event.detail ? event.detail.cases : [];
+            renderPendingCases(cases);
+        });
+
+        window.addEventListener('edge:pending-cases-error', (event) => {
+            const detail = event && event.detail ? event.detail : {};
+            showPendingLoadError(detail.message || '載入待處理案例失敗');
+        });
     </script>
+    {% include "_new_case_notifier.html" %}
 </body>
 
 </html>

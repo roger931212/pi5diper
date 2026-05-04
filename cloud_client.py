@@ -6,12 +6,13 @@ import os
 import threading
 import time
 import uuid
-from datetime import datetime
 from typing import Any, Dict
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+from edge_time_utils import now_iso_taipei
 
 logger = logging.getLogger(__name__)
 EXTERNAL_BASE = os.getenv("EXTERNAL_BASE", "https://your-app.zeabur.app").rstrip("/")
@@ -52,7 +53,7 @@ def get_http() -> requests.Session:
 
 
 def now_iso():
-    return datetime.now().isoformat(timespec="seconds")
+    return now_iso_taipei()
 
 
 def _build_internal_signed_headers(raw_body: bytes) -> dict:

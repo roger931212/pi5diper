@@ -24,6 +24,9 @@ from worker_runtime import stop_event, sync_once, sync_worker, reconcile_worker,
 logger = logging.getLogger(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
+NOTIFICATION_SOUND_PATH = os.path.join(
+    BASE_DIR, "static", "sounds", "new_case_notification.mp3"
+)
 EDGE_AUTH_TOKEN = os.getenv("EDGE_AUTH_TOKEN", "").strip()
 EDGE_ALLOWED_IPS = {
     ip.strip() for ip in os.getenv("EDGE_ALLOWED_IPS", "").split(",") if ip.strip()
@@ -172,6 +175,18 @@ async def get_image(case_id: str, _auth: bool = Depends(verify_edge_access)):
         raise HTTPException(status_code=404, detail="Image file not found")
 
     return FileResponse(image_path, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/notification/sound")
+async def get_notification_sound(_auth: bool = Depends(verify_edge_access)):
+    """Serve notification sound for new incoming cases."""
+    if not os.path.exists(NOTIFICATION_SOUND_PATH):
+        raise HTTPException(status_code=404, detail="Notification sound not found")
+    return FileResponse(
+        NOTIFICATION_SOUND_PATH,
+        media_type="audio/mpeg",
+        headers={"Cache-Control": "no-store"},
+    )
 
 @app.post("/api/sync/trigger")
 async def trigger_sync(_auth: bool = Depends(verify_edge_access)):

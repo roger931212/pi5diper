@@ -5,8 +5,9 @@ import math
 import os
 import threading
 import uuid
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
+
+from edge_time_utils import now_iso_taipei
 
 logger = logging.getLogger(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -47,7 +48,7 @@ os.makedirs(CROP_FOLDER, exist_ok=True)
 
 
 def now_iso():
-    return datetime.now().isoformat(timespec="seconds")
+    return now_iso_taipei()
 
 
 def sanitize_ext(ext: str) -> str:

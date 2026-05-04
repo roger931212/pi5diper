@@ -1,5 +1,7 @@
 import json
 
+from edge_time_utils import normalize_cloud_created_at
+
 
 def get_existing_case_receipt(*, db_lock, get_conn, case_id: str):
     with db_lock:
@@ -42,7 +44,7 @@ def insert_formal_case(
                     rec.get("phone"),
                     rec.get("line_user_id"),
                     local_filename,
-                    rec.get("created_at") or now_iso(),
+                    normalize_cloud_created_at(rec.get("created_at")) or now_iso(),
                     ai_result.get("status"),
                     ai_result.get("message"),
                     ai_result.get("ai_level"),

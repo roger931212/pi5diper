@@ -106,6 +106,39 @@
                 .replace(/'/g, "&#39;");
         }
 
+        function parseBackendDate(value, { assumeUtcWhenNoZone = false } = {}) {
+            const raw = String(value ?? "").trim();
+            if (!raw) {
+                return null;
+            }
+
+            let normalized = raw.replace(" ", "T");
+            if (/([+-]\d{2})(\d{2})$/.test(normalized)) {
+                normalized = normalized.replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
+            }
+            const hasExplicitZone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(normalized);
+            if (!hasExplicitZone && assumeUtcWhenNoZone) {
+                normalized = `${normalized}Z`;
+            }
+
+            const parsed = new Date(normalized);
+            if (Number.isNaN(parsed.getTime())) {
+                return null;
+            }
+            return parsed;
+        }
+
+        function formatBackendDate(value, { assumeUtcWhenNoZone = false } = {}) {
+            const parsed = parseBackendDate(value, { assumeUtcWhenNoZone });
+            if (!parsed) {
+                return '未知';
+            }
+            return parsed.toLocaleString('zh-TW', {
+                hour12: false,
+                timeZone: 'Asia/Taipei',
+            });
+        }
+
         async function loadReviewedCases() {
             try {
                 const response = await fetch('/api/list_reviewed');
@@ -131,8 +164,8 @@
                 let html = '';
                 cases.forEach(c => {
                     const caseId = String(c.id ?? "");
-                    const reviewedDate = c.reviewed_at ? new Date(c.reviewed_at).toLocaleString('zh-TW') : '未知';
-                    const createdDate = c.created_at ? new Date(c.created_at).toLocaleString('zh-TW') : '未知';
+                    const reviewedDate = formatBackendDate(c.reviewed_at);
+                    const createdDate = formatBackendDate(c.created_at, { assumeUtcWhenNoZone: true });
                     const reviewedDateEsc = escapeHtml(reviewedDate);
                     const createdDateEsc = escapeHtml(createdDate);
                     const normalizedReviewed = Math.max(0, Math.min(2, Number(c.reviewed_level ?? 0)));
@@ -261,6 +294,7 @@
         // Load cases on page load
         loadReviewedCases();
     </script>
+    {% include "_new_case_notifier.html" %}
 </body>
 
 </html>
