@@ -20,6 +20,13 @@ EDGE_AUTH_TOKEN = os.getenv("EDGE_AUTH_TOKEN", "").strip()
 EDGE_ALLOWED_IPS = {
     ip.strip() for ip in os.getenv("EDGE_ALLOWED_IPS", "").split(",") if ip.strip()
 }
+EDGE_AUTH_RATE_LIMIT = int(os.getenv("EDGE_AUTH_RATE_LIMIT", "20"))
+EDGE_AUTH_RATE_WINDOW_SEC = int(os.getenv("EDGE_AUTH_RATE_WINDOW_SEC", "600"))
+EDGE_TRUST_PROXY_HEADERS = os.getenv("EDGE_TRUST_PROXY_HEADERS", "0").strip() == "1"
+EDGE_TRUSTED_PROXY_IPS = {
+    ip.strip() for ip in os.getenv("EDGE_TRUSTED_PROXY_IPS", "").split(",") if ip.strip()
+}
+EDGE_TRUST_X_FORWARDED_FOR = os.getenv("EDGE_TRUST_X_FORWARDED_FOR", "0").strip() == "1"
 EDGE_COOKIE_SECURE = os.getenv("EDGE_COOKIE_SECURE", "1").strip() == "1"
 EDGE_COOKIE_MAX_AGE_SEC = int(os.getenv("EDGE_COOKIE_MAX_AGE_SEC", "28800"))
 RUN_BACKGROUND_WORKERS = os.getenv("RUN_BACKGROUND_WORKERS", "1").strip() == "1"
@@ -154,6 +161,8 @@ SEVERITY_SUGGESTIONS = {
 #   - Configure reverse proxy to redact query parameters from access logs
 #   - Use HTTPS exclusively
 #   - Rotate EDGE_AUTH_TOKEN periodically
+#   - Set EDGE_ALLOWED_IPS to your VPN/Zero Trust IPs or CIDR ranges in production
+#   - Leave EDGE_TRUST_PROXY_HEADERS=0 unless the direct peer is a trusted proxy
 
 # Templates
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))

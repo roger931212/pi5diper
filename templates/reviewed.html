@@ -8,67 +8,149 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            background: #f0f2f5;
-            padding: 20px;
+            background: #eef1f4;
+            padding: 24px 20px;
+            color: #1f2937;
+            font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", "Heiti TC", sans-serif;
         }
 
         .header {
-            background: white;
+            background: #ffffff;
             padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            border: 1px solid #d8dee6;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
             margin-bottom: 20px;
         }
 
         .history-card {
-            background: white;
-            border-radius: 10px;
+            background: #ffffff;
+            border-radius: 12px;
             padding: 20px;
             margin-bottom: 15px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            border-left: 4px solid #11998e;
+            border: 1px solid #d8dee6;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+            border-left: 4px solid #2e7a63;
         }
 
         .level-badge {
-            padding: 5px 12px;
-            border-radius: 15px;
+            padding: 6px 12px;
+            border-radius: 999px;
             font-size: 14px;
             font-weight: 600;
+            border: 1px solid transparent;
         }
 
         .level-0 {
-            background: #e3f2fd;
-            color: #1976d2;
+            background: #edf3f8;
+            color: #2f5d8a;
+            border-color: #ccdae8;
         }
 
         .level-1 {
-            background: #fff3e0;
-            color: #f57c00;
+            background: #fff4e8;
+            color: #9c5f16;
+            border-color: #f0d7b5;
         }
 
         .level-2 {
-            background: #fff9c4;
-            color: #f9a825;
+            background: #fff8db;
+            color: #90711a;
+            border-color: #e8dca8;
         }
 
         .empty-state {
             text-align: center;
             padding: 60px 20px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            background: #ffffff;
+            border-radius: 12px;
+            border: 1px solid #d8dee6;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+        }
+
+        .empty-state-mark {
+            display: inline-block;
+            font-size: 14px;
+            font-weight: 700;
+            padding: 7px 14px;
+            border-radius: 999px;
+            border: 1px solid #cfd8e3;
+            color: #41556f;
+            background: #f4f7fb;
+            margin-bottom: 18px;
         }
 
         .note-box {
-            background: #f8f9fa;
+            background: #f5f7fa;
             padding: 15px;
             border-radius: 8px;
             margin-top: 10px;
-            border-left: 3px solid #667eea;
+            border-left: 3px solid #2f5d8a;
         }
 
-        .status-icon {
-            font-size: 24px;
+        .status-tag {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid #bed9ce;
+            background: #eaf6f1;
+            color: #2e7a63;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .case-contact {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            margin-bottom: 10px;
+        }
+
+        .case-contact span {
+            color: #41556f;
+            font-size: 14px;
+        }
+
+        .history-photo {
+            display: inline-block;
+            padding: 8px;
+            border-radius: 10px;
+            border: 1px solid #d8dee6;
+            background: #f5f7fa;
+        }
+
+        .history-photo-link {
+            display: inline-block;
+            text-decoration: none;
+        }
+
+        .history-photo-img {
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid #cfd8e3;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
+            background: #e9edf2;
+        }
+
+        .history-photo-tip,
+        .history-photo-missing {
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .history-image-modal-body {
+            background: #f5f7fa;
+        }
+
+        .history-image-modal-img {
+            max-width: 100%;
+            max-height: 75vh;
+            border-radius: 8px;
+            border: 1px solid #cfd8e3;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+            background: #e9edf2;
         }
     </style>
 </head>
@@ -95,8 +177,8 @@
         <div id="historyList"></div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
+    <script nonce="{{ request.state.csp_nonce }}" src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script nonce="{{ request.state.csp_nonce }}">
         function escapeHtml(value) {
             return String(value ?? "")
                 .replace(/&/g, "&amp;")
@@ -139,6 +221,43 @@
             });
         }
 
+        function handleHistoryImageError(imageElement) {
+            const photoBox = imageElement.closest('.history-photo');
+            if (!photoBox) {
+                return;
+            }
+
+            const link = photoBox.querySelector('.history-photo-link');
+            const missingText = photoBox.querySelector('.history-photo-missing');
+            const tipText = photoBox.querySelector('.history-photo-tip');
+            imageElement.style.display = 'none';
+            if (link) {
+                link.style.display = 'none';
+            }
+            if (tipText) {
+                tipText.classList.add('d-none');
+            }
+            if (missingText) {
+                missingText.classList.remove('d-none');
+            }
+        }
+
+        function openHistoryImageModal(imageUrl, altText) {
+            if (!imageUrl) {
+                return;
+            }
+            const modalEl = document.getElementById('historyImageModal');
+            const modalImgEl = document.getElementById('historyImageModalImg');
+            if (!modalEl || !modalImgEl) {
+                return;
+            }
+
+            modalImgEl.src = imageUrl;
+            modalImgEl.alt = altText || '案例影像';
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+
         async function loadReviewedCases() {
             try {
                 const response = await fetch('/api/list_reviewed');
@@ -152,7 +271,7 @@
                 if (cases.length === 0) {
                     historyList.innerHTML = `
                         <div class="empty-state">
-                            <div style="font-size: 64px; margin-bottom: 20px;">📋</div>
+                            <div class="empty-state-mark">目前無歷史資料</div>
                             <h3>尚無已審閱案例</h3>
                             <p class="text-muted">您審閱過的案例將會顯示在此。</p>
                             <a href="/review" class="btn btn-primary mt-3">審閱待處理案例</a>
@@ -164,10 +283,13 @@
                 let html = '';
                 cases.forEach(c => {
                     const caseId = String(c.id ?? "");
+                    const encodedCaseId = encodeURIComponent(caseId);
                     const reviewedDate = formatBackendDate(c.reviewed_at);
                     const createdDate = formatBackendDate(c.created_at, { assumeUtcWhenNoZone: true });
                     const reviewedDateEsc = escapeHtml(reviewedDate);
                     const createdDateEsc = escapeHtml(createdDate);
+                    const caregiverName = String(c.name ?? "").trim() || "未填寫";
+                    const caregiverPhone = String(c.phone ?? "").trim() || "未填寫";
                     const normalizedReviewed = Math.max(0, Math.min(2, Number(c.reviewed_level ?? 0)));
                     const levelClass = `level-${normalizedReviewed}`;
                     const reviewedLevelDisplay = c.reviewed_level !== null && c.reviewed_level !== undefined
@@ -193,14 +315,16 @@
                     const lineStatus = c.line_send_status === 'ok'
                         ? '<span class="text-success">LINE 已傳送</span>'
                         : '<span class="text-warning">LINE 傳送失敗</span>';
+                    const imageUrl = `/api/image/${encodedCaseId}`;
+                    const caseIdShortEsc = escapeHtml(caseId.substring(0, 8));
 
                     html += `
                         <div class="history-card">
                             <div class="row">
                                 <div class="col-md-8">
                                     <div class="d-flex align-items-center mb-2">
-                                        <span class="status-icon me-2">✅</span>
-                                        <h5 class="mb-0">案例 ${escapeHtml(caseId.substring(0, 8))}...</h5>
+                                        <span class="status-tag me-2">已審閱</span>
+                                        <h5 class="mb-0">案例 ${caseIdShortEsc}...</h5>
                                     </div>
                                     
                                     <p class="text-muted mb-2">
@@ -209,6 +333,10 @@
                                             審閱時間: ${reviewedDateEsc}
                                         </small>
                                     </p>
+                                    <div class="case-contact">
+                                        <span><strong>姓名:</strong> ${escapeHtml(caregiverName)}</span>
+                                        <span><strong>電話:</strong> ${escapeHtml(caregiverPhone)}</span>
+                                    </div>
                                     
                                     <div class="mb-2">
                                         <span class="level-badge ${levelClass}">
@@ -227,7 +355,25 @@
                                     ${reviewedNoteHtml}
                                 </div>
                                 
-                                <div class="col-md-4 text-end">
+                                <div class="col-md-4 text-md-end text-start mt-3 mt-md-0">
+                                    <div class="history-photo mb-3">
+                                        <a
+                                            href="#"
+                                            class="history-photo-link js-history-photo"
+                                            data-image-url="${imageUrl}"
+                                            data-image-alt="案例影像 ${caseIdShortEsc}"
+                                            aria-label="放大檢視案例影像"
+                                        >
+                                            <img
+                                                src="${imageUrl}"
+                                                alt="案例影像 ${caseIdShortEsc}"
+                                                class="history-photo-img"
+                                                loading="lazy"
+                                            >
+                                        </a>
+                                        <small class="text-muted d-block mt-1 history-photo-tip">點選可放大檢視</small>
+                                        <small class="text-muted d-none history-photo-missing">影像檔案不存在或無法讀取</small>
+                                    </div>
                                     <small class="text-muted">
                                         案例編號:<br>
                                         <code>${escapeHtml(caseId)}</code>
@@ -283,6 +429,15 @@
         }
 
         document.getElementById('historyList').addEventListener('click', function (event) {
+            const photoTrigger = event.target.closest('.js-history-photo');
+            if (photoTrigger) {
+                event.preventDefault();
+                const imageUrl = photoTrigger.getAttribute('data-image-url') || '';
+                const imageAlt = photoTrigger.getAttribute('data-image-alt') || '案例影像';
+                openHistoryImageModal(imageUrl, imageAlt);
+                return;
+            }
+
             const button = event.target.closest('.js-delete-case');
             if (!button) {
                 return;
@@ -291,9 +446,41 @@
             deleteCase(caseId);
         });
 
+        document.getElementById('historyList').addEventListener('error', function (event) {
+            const imageElement = event.target.closest
+                ? event.target.closest('.history-photo-img')
+                : null;
+            if (imageElement) {
+                handleHistoryImageError(imageElement);
+            }
+        }, true);
+
+        const historyImageModalEl = document.getElementById('historyImageModal');
+        if (historyImageModalEl) {
+            historyImageModalEl.addEventListener('hidden.bs.modal', function () {
+                const modalImgEl = document.getElementById('historyImageModalImg');
+                if (modalImgEl) {
+                    modalImgEl.src = '';
+                }
+            });
+        }
+
         // Load cases on page load
         loadReviewedCases();
     </script>
+    <div class="modal fade" id="historyImageModal" tabindex="-1" aria-labelledby="historyImageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="historyImageModalLabel">案例影像</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body text-center history-image-modal-body">
+                    <img id="historyImageModalImg" src="" alt="案例影像" class="history-image-modal-img">
+                </div>
+            </div>
+        </div>
+    </div>
     {% include "_new_case_notifier.html" %}
 </body>
 

@@ -12,6 +12,7 @@ import config as _config  # Force startup-time required env validation.
 from ai_pipeline import get_model_readiness
 from database import db_lock, get_conn
 from edge_auth import (
+    edge_security_headers,
     normalize_case_id,
     resolve_image_path_safe,
     template_with_auth_cookie,
@@ -31,6 +32,13 @@ EDGE_AUTH_TOKEN = os.getenv("EDGE_AUTH_TOKEN", "").strip()
 EDGE_ALLOWED_IPS = {
     ip.strip() for ip in os.getenv("EDGE_ALLOWED_IPS", "").split(",") if ip.strip()
 }
+EDGE_AUTH_RATE_LIMIT = int(os.getenv("EDGE_AUTH_RATE_LIMIT", "20"))
+EDGE_AUTH_RATE_WINDOW_SEC = int(os.getenv("EDGE_AUTH_RATE_WINDOW_SEC", "600"))
+EDGE_TRUST_PROXY_HEADERS = os.getenv("EDGE_TRUST_PROXY_HEADERS", "0").strip() == "1"
+EDGE_TRUSTED_PROXY_IPS = {
+    ip.strip() for ip in os.getenv("EDGE_TRUSTED_PROXY_IPS", "").split(",") if ip.strip()
+}
+EDGE_TRUST_X_FORWARDED_FOR = os.getenv("EDGE_TRUST_X_FORWARDED_FOR", "0").strip() == "1"
 EDGE_COOKIE_SECURE = os.getenv("EDGE_COOKIE_SECURE", "1").strip() == "1"
 EDGE_COOKIE_MAX_AGE_SEC = int(os.getenv("EDGE_COOKIE_MAX_AGE_SEC", "28800"))
 RUN_BACKGROUND_WORKERS = os.getenv("RUN_BACKGROUND_WORKERS", "1").strip() == "1"
@@ -66,6 +74,11 @@ def verify_edge_access(request: Request):
         request,
         edge_allowed_ips=EDGE_ALLOWED_IPS,
         edge_auth_token=EDGE_AUTH_TOKEN,
+        edge_auth_rate_limit=EDGE_AUTH_RATE_LIMIT,
+        edge_auth_rate_window_sec=EDGE_AUTH_RATE_WINDOW_SEC,
+        edge_trust_proxy_headers=EDGE_TRUST_PROXY_HEADERS,
+        edge_trusted_proxy_ips=EDGE_TRUSTED_PROXY_IPS,
+        edge_trust_x_forwarded_for=EDGE_TRUST_X_FORWARDED_FOR,
         logger=logger,
     )
 
@@ -114,6 +127,17 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # ============================
+# Security Middleware
+# ============================
+@app.middleware("http")
+async def add_edge_security_headers(request: Request, call_next):
+    return await edge_security_headers(
+        request,
+        call_next,
+        edge_cookie_secure=EDGE_COOKIE_SECURE,
+    )
+
+# ============================
 # UI Routes (AUTHENTICATED)
 # ============================
 @app.get("/", response_class=HTMLResponse)
@@ -139,13 +163,22 @@ async def review_detail_page(request: Request, _auth: bool = Depends(verify_edge
 async def health_check():
     """Readiness-aware health endpoint for container orchestration."""
     models = get_model_readiness()
-    payload = {"service": "edge_private", "models": models}
+    status = "ok" if models.get("ready") else "degraded"
+    payload = {"status": status, "service": "edge_private"}
     if not models.get("ready"):
-        return JSONResponse(
-            status_code=503,
-            content={"status": "degraded", **payload},
-        )
-    return {"status": "ok", **payload}
+        return JSONResponse(status_code=503, content=payload)
+    return payload
+
+
+@app.get("/api/health/models")
+async def model_health(_auth: bool = Depends(verify_edge_access)):
+    """Authenticated model readiness details."""
+    models = get_model_readiness()
+    status = "ok" if models.get("ready") else "degraded"
+    payload = {"status": status, "service": "edge_private", "models": models}
+    if not models.get("ready"):
+        return JSONResponse(status_code=503, content=payload)
+    return payload
 
 # ============================
 # API Routes (AUTHENTICATED)
@@ -235,7 +268,7 @@ async def list_pending(_auth: bool = Depends(verify_edge_access)):
         try:
             rows = []
             for r in conn.execute(
-                "SELECT id, created_at, status, ai_status, ai_message, ai_level, ai_prob, ai_suggestion, image_filename "
+                "SELECT id, name, phone, created_at, status, ai_status, ai_message, ai_level, ai_prob, ai_suggestion, image_filename "
                 "FROM cases WHERE status='pending' ORDER BY created_at ASC"
             ):
                 image_path = _resolve_image_path_safe(r["image_filename"])
@@ -244,6 +277,8 @@ async def list_pending(_auth: bool = Depends(verify_edge_access)):
                 rows.append(
                     {
                         "id": r["id"],
+                        "name": r["name"],
+                        "phone": r["phone"],
                         "created_at": r["created_at"],
                         "status": r["status"],
                         "ai_status": r["ai_status"],
@@ -265,6 +300,8 @@ async def list_reviewed(_auth: bool = Depends(verify_edge_access)):
             rows = [
                 {
                     "id": r["id"],
+                    "name": r["name"],
+                    "phone": r["phone"],
                     "created_at": r["created_at"],
                     "status": r["status"],
                     "ai_status": r["ai_status"],
@@ -277,7 +314,7 @@ async def list_reviewed(_auth: bool = Depends(verify_edge_access)):
                     "line_send_status": r["line_send_status"],
                 }
                 for r in conn.execute(
-                    "SELECT id, created_at, status, ai_status, ai_message, ai_level, ai_prob, reviewed_level, "
+                    "SELECT id, name, phone, created_at, status, ai_status, ai_message, ai_level, ai_prob, reviewed_level, "
                     "reviewed_note, reviewed_at, line_send_status "
                     "FROM cases WHERE status='reviewed' ORDER BY reviewed_at DESC"
                 )
@@ -293,7 +330,7 @@ async def case_detail(case_id: str, _auth: bool = Depends(verify_edge_access)):
         conn = get_conn()
         try:
             row = conn.execute(
-                "SELECT id, created_at, status, ai_status, ai_message, ai_level, ai_prob, ai_suggestion "
+                "SELECT id, name, phone, created_at, status, ai_status, ai_message, ai_level, ai_prob, ai_suggestion "
                 "FROM cases WHERE id=?",
                 (case_id,),
             ).fetchone()

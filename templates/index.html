@@ -8,18 +8,21 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            background: #eef1f4;
             min-height: 100vh;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
-            padding: 20px;
+            padding: 36px 20px;
+            color: #1f2937;
+            font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", "Heiti TC", sans-serif;
         }
 
         .dashboard-card {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            background: #ffffff;
+            border-radius: 12px;
+            border: 1px solid #d8dee6;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
             padding: 50px;
             max-width: 700px;
             width: 100%;
@@ -28,57 +31,69 @@
         .system-title {
             text-align: center;
             margin-bottom: 40px;
-            color: #1e3c72;
+            color: #243447;
+        }
+
+        .system-title h1 {
+            font-weight: 700;
+            letter-spacing: 1px;
         }
 
         .action-btn {
-            padding: 30px;
-            font-size: 20px;
+            padding: 22px;
+            font-size: 18px;
             font-weight: 600;
-            border-radius: 15px;
-            transition: all 0.3s;
-            border: none;
+            border-radius: 10px;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+            border: 1px solid transparent;
             margin-bottom: 20px;
         }
 
         .btn-primary-custom {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #2f5d8a;
+            border-color: #2f5d8a;
             color: white;
         }
 
         .btn-primary-custom:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            background: #264d72;
+            border-color: #264d72;
+            color: white;
         }
 
         .btn-success-custom {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            background: #2e7a63;
+            border-color: #2e7a63;
             color: white;
         }
 
         .btn-success-custom:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(17, 153, 142, 0.4);
+            background: #25624f;
+            border-color: #25624f;
+            color: white;
         }
 
         .btn-sync {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            background: #6c4f34;
+            border-color: #6c4f34;
             color: white;
-            padding: 15px;
+            padding: 16px;
             font-size: 16px;
         }
 
         .btn-sync:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(245, 87, 108, 0.4);
+            background: #593f29;
+            border-color: #593f29;
+            color: white;
         }
 
         .status-badge {
             font-size: 14px;
             padding: 8px 16px;
             border-radius: 20px;
-            background: #e3f2fd;
-            color: #1976d2;
+            background: #edf3f8;
+            color: #2f5d8a;
+            border: 1px solid #ccdae8;
             display: inline-block;
         }
     </style>
@@ -101,7 +116,7 @@
                 檢視歷史紀錄
             </a>
 
-            <button class="btn action-btn btn-sync" onclick="triggerSync()">
+            <button id="triggerSyncBtn" type="button" class="btn action-btn btn-sync">
                 手動強制同步
             </button>
         </div>
@@ -124,8 +139,8 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
+    <script nonce="{{ request.state.csp_nonce }}" src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script nonce="{{ request.state.csp_nonce }}">
         async function triggerSync() {
             try {
                 const response = await fetch('/api/sync/trigger', {
@@ -157,6 +172,11 @@
                 const toast = new bootstrap.Toast(toastEl);
                 toast.show();
             }
+        }
+
+        const triggerSyncBtn = document.getElementById('triggerSyncBtn');
+        if (triggerSyncBtn) {
+            triggerSyncBtn.addEventListener('click', triggerSync);
         }
     </script>
     {% include "_new_case_notifier.html" %}
